@@ -1,0 +1,100 @@
+//apisiz led kodu
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "inc/hw_memmap.h"
+#include "driverlib/sysctl.h"
+#include "driverlib/gpio.h"
+
+// LCD bağlantıları (ayarınıza göre ayarlayın)
+#define LCD_RS GPIO_PIN_0  // Register select (RS) -> PB0
+#define LCD_E  GPIO_PIN_1   // Enable (E) -> PB1
+#define LCD_D4 GPIO_PIN_4   // Data bit 4 (D4) -> PB4
+#define LCD_D5 GPIO_PIN_5   // Data bit 5 (D5) -> PB5
+#define LCD_D6 GPIO_PIN_6   // Data bit 6 (D6) -> PB6
+#define LCD_D7 GPIO_PIN_7   // Data bit 7 (D7) -> PB7
+
+void LCD_Command(unsigned char cmd);
+void LCD_Char(unsigned char data);
+void LCD_Init(void);
+void LCD_String(const char *str);
+void DelayMs(int n);
+
+int main(void) {
+    // Clock ayarları
+    SysCtlClockSet(SYSCTL_SYSDIV_5 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
+
+    // Port B'yi başlat
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+    while (!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOB)) {}
+
+    // Port B'deki pinleri çıkış yap
+    GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, LCD_RS | LCD_E | LCD_D4 | LCD_D5 | LCD_D6 | LCD_D7);
+
+    // LCD'yi başlat
+    LCD_Init();
+
+    // LCD'ye "Furkan Ozturk" yaz
+    LCD_String("Furkan Ozturk");
+
+    while (1) {
+        // Sonsuz döngü
+    }
+}
+
+// LCD'ye komut gönderme fonksiyonu
+void LCD_Command(unsigned char cmd) {
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_RS, 0x00); // RS = 0, komut gönderiyoruz
+
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_D4 | LCD_D5 | LCD_D6 | LCD_D7, (cmd & 0xF0)); // Üst nibble
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_E, LCD_E); // Enable pinini 1 yap
+    DelayMs(1);
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_E, 0x00); // Enable pinini 0 yap
+
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_D4 | LCD_D5 | LCD_D6 | LCD_D7, ((cmd << 4) & 0xF0)); // Alt nibble
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_E, LCD_E); // Enable pinini 1 yap
+    DelayMs(1);
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_E, 0x00); // Enable pinini 0 yap
+
+    DelayMs(2); // Komut işlemesi için kısa bir gecikme
+}
+
+// LCD'ye veri gönderme fonksiyonu (karakter)
+void LCD_Char(unsigned char data) {
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_RS, LCD_RS); // RS = 1, veri gönderiyoruz
+
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_D4 | LCD_D5 | LCD_D6 | LCD_D7, (data & 0xF0)); // Üst nibble
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_E, LCD_E); // Enable pinini 1 yap
+    DelayMs(1);
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_E, 0x00); // Enable pinini 0 yap
+
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_D4 | LCD_D5 | LCD_D6 | LCD_D7, ((data << 4) & 0xF0)); // Alt nibble
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_E, LCD_E); // Enable pinini 1 yap
+    DelayMs(1);
+    GPIOPinWrite(GPIO_PORTB_BASE, LCD_E, 0x00); // Enable pinini 0 yap
+
+    DelayMs(2); // Komut işlemesi için kısa bir gecikme
+}
+
+// LCD'yi başlatma fonksiyonu
+void LCD_Init(void) {
+    DelayMs(20); // Başlangıç gecikmesi
+    LCD_Command(0x02); // 4-bit modda başlat
+    LCD_Command(0x28); // 2 satır, 5x8 font
+    LCD_Command(0x06); // İmleç sağa kaydır
+    LCD_Command(0x0C); // Ekran açık, imleç kapalı
+    LCD_Command(0x01); // Ekranı temizle
+    DelayMs(2);
+}
+
+// LCD'ye string gönderme fonksiyonu
+void LCD_String(const char *str) {
+    while (*str) {
+        LCD_Char(*str++);
+    }
+}
+
+// Gecikme fonksiyonu
+void DelayMs(int n) {
+    SysCtlDelay(SysCtlClockGet() / (1000 * 3) * n); // Yaklaşık n milisaniye
+}
